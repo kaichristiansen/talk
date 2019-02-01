@@ -3,6 +3,16 @@ import { Db } from "mongodb";
 import uuid from "uuid";
 
 import { Omit, Sub } from "talk-common/types";
+import {
+  DuplicateEmailError,
+  DuplicateUserError,
+  DuplicateUsernameError,
+  LocalProfileAlreadySetError,
+  LocalProfileNotSetError,
+  TokenNotFoundError,
+  UsernameAlreadySetError,
+  UserNotFoundError,
+} from "talk-server/errors";
 import { GQLUSER_ROLE } from "talk-server/graph/tenant/schema/__generated__/types";
 import { FilterQuery } from "talk-server/models/query";
 import { TenantResource } from "talk-server/models/tenant";
@@ -149,8 +159,7 @@ export async function upsertUser(
   // because we're returning the updated document and performing an upsert
   // operation.
   if (result.value!.id !== id) {
-    // TODO: return better error.
-    throw new Error("user already found");
+    throw new DuplicateUserError();
   }
 
   return result.value!;
@@ -228,8 +237,7 @@ export async function updateUserRole(
     }
   );
   if (!result.value) {
-    // TODO: (wyattjoh) return better error
-    throw new Error("user not found");
+    throw new UserNotFoundError(id);
   }
 
   return result.value;
@@ -240,7 +248,7 @@ export async function verifyUserPassword(user: User, password: string) {
     ({ type }) => type === "local"
   ) as LocalProfile | undefined;
   if (!profile) {
-    throw new Error("no local profile exists for this user");
+    throw new LocalProfileNotSetError();
   }
 
   return bcrypt.compare(password, profile.password);
@@ -279,8 +287,7 @@ export async function updateUserPassword(
   if (!result.value) {
     const user = await retrieveUser(mongo, tenantID, id);
     if (!user) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user not found");
+      throw new UserNotFoundError(id);
     }
 
     if (
@@ -288,12 +295,10 @@ export async function updateUserPassword(
         profile => profile.type === "local" && profile.id === user.email
       )
     ) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user does not have a local profile");
+      throw new LocalProfileNotSetError();
     }
 
-    // TODO: (wyattjoh) return better error
-    throw new Error("unexpected error occurred");
+    throw new Error("an unexpected error occured");
   }
 
   return result.value || null;
@@ -323,8 +328,7 @@ export async function setUserUsername(
     lowercaseUsername,
   });
   if (user) {
-    // TODO: (wyattjoh) return better error
-    throw new Error("duplicate username found");
+    throw new DuplicateUsernameError(username);
   }
 
   // The username wasn't found, so add it to the user.
@@ -350,17 +354,14 @@ export async function setUserUsername(
     // Try to get the current user to discover what happened.
     user = await retrieveUser(mongo, tenantID, id);
     if (!user) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user not found");
+      throw new UserNotFoundError(id);
     }
 
     if (user.username) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user already has username");
+      throw new UsernameAlreadySetError();
     }
 
-    // TODO: (wyattjoh) return better error
-    throw new Error("unexpected error occurred");
+    throw new Error("an unexpected error occured");
   }
 
   return result.value;
@@ -389,8 +390,7 @@ export async function updateUserUsername(
     lowercaseUsername,
   });
   if (user) {
-    // TODO: (wyattjoh) return better error
-    throw new Error("duplicate username found");
+    throw new DuplicateUsernameError(username);
   }
 
   // The username wasn't found, so add it to the user.
@@ -415,12 +415,10 @@ export async function updateUserUsername(
     // Try to get the current user to discover what happened.
     user = await retrieveUser(mongo, tenantID, id);
     if (!user) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user not found");
+      throw new UserNotFoundError(id);
     }
 
-    // TODO: (wyattjoh) return better error
-    throw new Error("unexpected error occurred");
+    throw new Error("an unexpected error occured");
   }
 
   return result.value;
@@ -464,12 +462,10 @@ export async function updateUserDisplayName(
     // Try to get the current user to discover what happened.
     const user = await retrieveUser(mongo, tenantID, id);
     if (!user) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user not found");
+      throw new UserNotFoundError(id);
     }
 
-    // TODO: (wyattjoh) return better error
-    throw new Error("unexpected error occurred");
+    throw new Error("an unexpected error occured");
   }
 
   return result.value;
@@ -499,8 +495,7 @@ export async function setUserEmail(
     email,
   });
   if (user) {
-    // TODO: (wyattjoh) return better error
-    throw new Error("duplicate email found");
+    throw new DuplicateEmailError(email);
   }
 
   // The email wasn't found, so try to update the User.
@@ -525,17 +520,14 @@ export async function setUserEmail(
     // Try to get the current user to discover what happened.
     user = await retrieveUser(mongo, tenantID, id);
     if (!user) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user not found");
+      throw new UserNotFoundError(id);
     }
 
     if (user.email) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user already has email");
+      throw new UsernameAlreadySetError();
     }
 
-    // TODO: (wyattjoh) return better error
-    throw new Error("unexpected error occurred");
+    throw new Error("an unexpected error occured");
   }
 
   return result.value;
@@ -564,8 +556,7 @@ export async function updateUserEmail(
     email,
   });
   if (user) {
-    // TODO: (wyattjoh) return better error
-    throw new Error("duplicate email found");
+    throw new DuplicateEmailError(email);
   }
 
   // The email wasn't found, so try to update the User.
@@ -589,12 +580,10 @@ export async function updateUserEmail(
     // Try to get the current user to discover what happened.
     user = await retrieveUser(mongo, tenantID, id);
     if (!user) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user not found");
+      throw new UserNotFoundError(id);
     }
 
-    // TODO: (wyattjoh) return better error
-    throw new Error("unexpected error occurred");
+    throw new Error("an unexpected error occured");
   }
 
   return result.value;
@@ -638,12 +627,10 @@ export async function updateUserAvatar(
     // Try to get the current user to discover what happened.
     const user = await retrieveUser(mongo, tenantID, id);
     if (!user) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user not found");
+      throw new UserNotFoundError(id);
     }
 
-    // TODO: (wyattjoh) return better error
-    throw new Error("unexpected error occurred");
+    throw new Error("an unexpected error occured");
   }
 
   return result.value;
@@ -676,8 +663,7 @@ export async function setUserLocalProfile(
     id: email,
   });
   if (user) {
-    // TODO: (wyattjoh) return better error
-    throw new Error("duplicate profile found");
+    throw new DuplicateEmailError(email);
   }
 
   // Hash the password.
@@ -714,17 +700,14 @@ export async function setUserLocalProfile(
     // Try to get the current user to discover what happened.
     user = await retrieveUser(mongo, tenantID, id);
     if (!user) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user not found");
+      throw new UserNotFoundError(id);
     }
 
     if (user.profiles.some(({ type }) => type === "local")) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user already has local profile");
+      throw new LocalProfileAlreadySetError();
     }
 
-    // TODO: (wyattjoh) return better error
-    throw new Error("unexpected error occurred");
+    throw new Error("an unexpected error occured");
   }
 
   return result.value;
@@ -758,8 +741,7 @@ export async function createUserToken(
     }
   );
   if (!result.value) {
-    // TODO: (wyattjoh) return better error
-    throw new Error("user not found");
+    throw new UserNotFoundError(userID);
   }
 
   return {
@@ -793,18 +775,15 @@ export async function deactivateUserToken(
   if (!result.value) {
     const user = await retrieveUser(mongo, tenantID, userID);
     if (!user) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("user not found");
+      throw new UserNotFoundError(id);
     }
 
     // Check to see if the User had that Token in the first place.
     if (!user.tokens.find(t => t.id === id)) {
-      // TODO: (wyattjoh) return better error
-      throw new Error("token not found on user");
+      throw new TokenNotFoundError();
     }
 
-    // TODO: (wyattjoh) return better error
-    throw new Error("could not remove the token for an unknown reason");
+    throw new Error("an unexpected error occured");
   }
 
   // We have to typecast here because we know at this point that the record does
